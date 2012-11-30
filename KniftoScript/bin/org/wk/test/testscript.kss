@@ -1,0 +1,10 @@
+;Script zum Test des Lexers
+
+FUNC test
+	FLOAT f
+	f = -13*asdf+125/(10+18*12)*150
+END
+
+INT asdf
+
+end.
