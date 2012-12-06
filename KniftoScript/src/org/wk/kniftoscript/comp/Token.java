@@ -58,6 +58,9 @@ public class Token
 		case 10:
 			result += "BRACE";
 			break;
+		case 11:
+			result += "SEPERATOR";
+			break;
 		default:
 			result += "I don't know what you have done, but this token seems awkward...";	
 		}
@@ -80,4 +83,5 @@ public class Token
 	public static final int T_COMMAND_END = 8;
 	public static final int T_DATATYPE = 9;
 	public static final int T_BRACE = 10;
+	public static final int T_SEPERATOR = 11;
 }

@@ -36,6 +36,15 @@ public class Lexer
 				char c = (char)lchar;
 				readNext();
 				return new Token(Token.T_BRACE,"" + c);
+			}else if(isQuote(lchar))
+			{
+				String s = readStringLiteral();
+				return new Token(Token.T_LITERAL_STRING,s);
+			}else if(isSeperator(lchar))
+			{
+				char c = (char)lchar;
+				readNext();
+				return new Token(Token.T_SEPERATOR,"" + c);
 			}else
 			{
 				String s = readIdent();
@@ -52,6 +61,27 @@ public class Lexer
 		{
 			return null;
 		}
+	}
+	
+	private String readStringLiteral() throws IOException
+	{
+		expectQuote();
+		readNext();
+		String s = "";
+		while(!isQuote(lchar))
+		{
+			try
+			{
+				s += (char)lchar;
+				readNext();
+			}catch(EOFException e)
+			{
+				throw new CompilerException("EOF reached before closing string literal token");
+			}
+		}
+		expectQuote();
+		readNext();
+		return s;
 	}
 	
 	private String readNumber() throws IOException
@@ -80,6 +110,12 @@ public class Lexer
 			readNext();
 		}
 		return s;//S sollte niemals "" oder null sein, vorher wird EOFException geworfen
+	}
+	
+	private void expectQuote() throws IOException
+	{
+		if(!isQuote(lchar))
+			throw new CompilerException("Missing quotation mark, found: " + (char)lchar);
 	}
 	
 	private void expectAlpha() throws IOException
@@ -113,6 +149,21 @@ public class Lexer
 		}
 	}
 	
+	private boolean isQuote(int i)
+	{
+		return (i == '\'') || (i == '\"');
+	}
+	
+	private boolean isSeperator(int i)
+	{
+		for(int j : seperators)
+		{
+			if(j == i)
+				return true;
+		}
+		return false;
+	}
+	
 	private boolean isWhite(int i)
 	{
 		return (i == C_SPACE) ||
@@ -128,9 +179,12 @@ public class Lexer
 	
 	private boolean isOperator(int i)
 	{
-		return (i == '+') || (i == '-') || (i == '*') || (i == '/') || (i == '.')
-				|| (i == '=') || (i == '|') || (i == '&') || (i == '~') || (i == '^')
-				 || (i == '%');
+		for(int j : operators)
+		{
+			if(j == i)
+				return true;
+		}
+		return false;
 	}
 	
 	private boolean isBrace(int i)
@@ -199,8 +253,10 @@ public class Lexer
 	
 	private int currentLine;
 	
-	public static final String[] keywords = new String[]{"IMPORT","FUNC","IF","ELSE","ELSEIF","WHILE","NULL","END","BREAK"};
-	public static final String[] datatypes = new String[]{"INT","FLOAT","STRING","OBJECT"};
+	public String[] keywords = new String[]{};// = new String[]{"IMPORT","FUNC","IF","ELSE","ELSEIF","WHILE","NULL","END","BREAK"};
+	public String[] datatypes = new String[]{};// = new String[]{"INT","FLOAT","STRING","OBJECT"};
+	public int[] operators = new int[]{};// = new int[]{'+','-','*','/','.','=','|','&','~','^','%'};
+	public int[] seperators = new int[]{};//= new int[]{',',':'};
 	
 	public static final int C_SPACE = ' ';
 	public static final int C_TAB = '\t';
@@ -208,4 +264,5 @@ public class Lexer
 	public static final int C_CARRIAGE = 13;
 	
 	public static final int TK_COMMENT = ';';
+	public static final int TK_SEPERATOR = ',';
 }

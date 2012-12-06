@@ -124,6 +124,10 @@ public class KniftoScript
 					pc += 5;
 				break;
 				
+			case OP_PRINTSTACK:
+				debugInstruction(OP_PRINTSTACK);
+				break;
+				
 			default:
 				throw new ScriptException("Invalid opcode: " + op,pc);
 			}
@@ -132,10 +136,10 @@ public class KniftoScript
 	
 	private void dec() throws ScriptException
 	{
-		int type = getByte(pc+1);
-		String name = readString(pc+2);
+		int type = readInt(pc+1);
+		String name = readString(pc+5);
 		declareVar(name,type);
-		pc += 3 + name.length();
+		pc += 6 + name.length();
 	}
 	
 	private void dis() throws ScriptException
@@ -259,6 +263,21 @@ public class KniftoScript
 		pc += 1;
 	}
 	
+	private void debugInstruction(int instr)
+	{
+		if(instr == OP_PRINTSTACK)
+		{
+			System.out.println("--Data stack--");
+			Object oguz[] = aStack.toArray();
+			for(int i = 0; i< aStack.size();i++)
+			{
+				Object o = oguz[i];
+				System.out.println(i + ">" + o);
+			}
+			pc += 1;
+		}
+	}
+	
 	private boolean isNumericType(Object o)
 	{
 		return (o instanceof Float) || (o instanceof Integer);
@@ -361,5 +380,6 @@ public class KniftoScript
 	
 	public static final int OP_HDL = 42;//Hard label
 	
+	public static final int OP_PRINTSTACK = 254;//Print contents of stack to stdout
 	public static final int OP_HLT = 255;//Halt operation
 }

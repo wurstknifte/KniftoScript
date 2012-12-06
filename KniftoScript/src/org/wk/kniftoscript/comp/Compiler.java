@@ -39,6 +39,11 @@ public class Compiler
 						throw new CompilerException("Function declared in function");
 				}
 				
+				if(t.getValue().equalsIgnoreCase("PRINTSTACK"))
+				{
+					out.append("PRINTSTACK\n");
+				}
+				
 				if(t.getValue().equalsIgnoreCase("END"))
 					return;
 				
@@ -125,7 +130,7 @@ public class Compiler
 		Token t = lexer.readToken();
 		if(t.getType() == Token.T_LITERAL_INT)
 		{
-			out.append("PSHI " + t.getValue() + "\n");
+			out.append("PSHI '" + t.getValue() + "'\n");
 		}else if(t.getType() == Token.T_IDENTIFIER)
 		{
 			out.append("PSH '" + t.getValue() + "'\n");
@@ -177,14 +182,30 @@ public class Compiler
 		if(t.getType() != Token.T_IDENTIFIER)
 			throw new CompilerException("Identifier expected, found " + t.toString());
 		
-		System.out.println("Function declaration: " + t.getValue());
+		String funcName = t.getValue();
 		
-		out.append("JMP " + t.getValue() + "_end\n");
-		out.append("DEF '" + t.getValue() + "'\n");
+		t = lexer.readToken();
+		if(t.getType() != Token.T_BRACE || !t.getValue().equals("("))
+			throw new CompilerException("Expected parameter list, found " + t.toString());
+		
+		t = lexer.peekToken();
+		while((t.getType() != Token.T_BRACE || !t.getValue().equals(")")))
+		{
+			
+			
+			t = lexer.peekToken();
+			if(t == null)
+				throw new CompilerException("Token stream ended before closing parameter list!");//FIXME Compiler hängt statt diese Nachricht auszugeben
+		}
+		
+		System.out.println("Function declaration: " + funcName);
+		
+		out.append("JMP " + funcName + "_end\n");
+		out.append("DEF '" + funcName + "'\n");
 		
 		program(true);
 		
-		out.append(t.getValue() + "_end:\n");
+		out.append(funcName + "_end:\n");
 		System.out.println("End function");
 	}
 	
@@ -198,7 +219,15 @@ public class Compiler
 		if(name.getType() != Token.T_IDENTIFIER)
 			throw new CompilerException("Expected identifier!");
 		
-		out.append("DEC '" + name.getValue() + "'," + type.getValue() + "\n");
+		out.append("DEC " + typeid + ",'" + name.getValue() + "'\n");
+		
+		Token nxt = lexer.peekToken();
+		if(nxt.getType() == Token.T_OPERATOR && nxt.getValue().equals("="))//Intitialisierung
+		{
+			lexer.readToken();
+			assignment(name);
+		}
+		
 		System.out.println("Declared variable '" + name.getValue() + "' as " + type.getValue());
 	}
 	

@@ -1,8 +1,11 @@
 package org.wk.test;
 
 import java.io.InputStream;
+
+import org.wk.kniftoscript.KniftoScript;
+import org.wk.kniftoscript.ScriptException;
+import org.wk.kniftoscript.comp.Assembler;
 import org.wk.kniftoscript.comp.Lexer;
-import org.wk.kniftoscript.comp.Token;
 import org.wk.kniftoscript.comp.Compiler;
 
 public class TestMain
@@ -11,7 +14,7 @@ public class TestMain
 	public static void main(String[] args)
 	{
 		/*KniftoScript script = new KniftoScript();
-		script.loadScript(new int[]{
+		script.loadScript(new int[]{//SCRIPT UNBRAUCHBAR, INSTRUKTIONEN GEÄNDERT!
 				1,1,3,'f','o','o',			//DEC int foo	int foo;
 				4,3,'f','o','o',1,'0',		//SET foo 0		foo = 0;
 				1,1,3,'c','n','t',			//DEC int cnt	int cnt;
@@ -33,11 +36,31 @@ public class TestMain
 		{
 			InputStream in = TestMain.class.getResourceAsStream("testscript.kss");
 			//System.out.println((char)in.read());
+			
 			Lexer l = new Lexer(in);
+			l.keywords = new String[]{"PRINTSTACK","SCRIPT","IMPORT","FUNC","IF","ELSE","ELSEIF","WHILE","NULL","END","BREAK"};
+			l.datatypes = new String[]{"INT","FLOAT","STRING","OBJECT"};
+			l.operators = new int[]{'+','-','*','/','.','=','|','&','~','^','%'};
+			l.seperators = new int[]{','};
 			Compiler c = new Compiler();
 			String script = c.compile(l);
 			System.out.println("---Compiled script---");
 			System.out.print(script);
+			
+			System.out.println("---Assembling---");
+			
+			Assembler asm = new Assembler();
+			int[] code = asm.assemble(script);
+			for(int b : code)
+			{
+				System.out.println(b + "\t" + (char)b);
+			}
+			
+			KniftoScript ks = new KniftoScript();
+			ks.loadScript(code);
+			
+			ks.run();
+			
 			//Token t;
 			//while((t = l.readToken()) != null)
 			//{
@@ -45,15 +68,24 @@ public class TestMain
 			//}
 			
 			System.out.println(">>EOF");
+			
+			/*for(Field f : KniftoScript.class.getDeclaredFields())
+			{
+				if(f.getName().startsWith("OP_"))
+				{
+					String op = f.getName().substring(3);
+					System.out.println("addOp(\"" + op + "\");");
+				}
+			}*/
+			
 			//script.run();
-			//System.out.println(script.variables.get("foo").getValue());
+			System.out.println("Foo = " + ks.variables.get("foo").getValue());
 			//System.out.println(script.variables.get("cnt").getValue());
-		} //catch (ScriptException e)
-		//{
-			//System.err.println("PCR: " + script.pc);
-			//System.err.println("PC: " + e.getPC());
-			//e.printStackTrace();
-		/*}*/catch(Exception ex)
+		}catch (ScriptException e)
+		{
+			System.err.println("PC: " + e.getPC());
+			e.printStackTrace();
+		}catch(Exception ex)
 		{
 			//System.err.println("PCR: " + script.pc);
 			ex.printStackTrace();

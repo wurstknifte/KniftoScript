@@ -1,10 +1,14 @@
-;Script zum Test des Lexers
+;Script zum Test des Lexers und des compilers
 
-FUNC test
-	FLOAT f
-	f = -13*asdf+125/(10+18*12)*150
+INT boo = 6
+FLOAT foo = (4+5)*10+boo*6
+
+PRINTSTACK
+
+FUNC fubar()
+	foo = -1
 END
 
-INT asdf
+foo = 125
 
-end.
+END.
