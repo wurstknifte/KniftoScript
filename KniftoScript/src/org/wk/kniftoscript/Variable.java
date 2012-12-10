@@ -129,6 +129,20 @@ public class Variable
 		throw new ScriptException("Bad numeric value: " + s, -1);
 	}
 	
+	public static int getVariableTypeByValue(Object o)
+	{
+		if(o instanceof Integer)
+			return V_INT;
+		else if(o instanceof Float)
+			return V_FLOAT;
+		else if(o instanceof String)
+			return V_STRING;
+		else if(o instanceof VarObject)
+			return V_OBJECT;
+		else
+			return -1;
+	}
+	
 	public static final int V_RESERVED = 0;
 	public static final int V_INT = 1;
 	public static final int V_FLOAT = 2;

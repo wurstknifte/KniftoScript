@@ -38,10 +38,6 @@ public class TestMain
 			//System.out.println((char)in.read());
 			
 			Lexer l = new Lexer(in);
-			l.keywords = new String[]{"PRINTSTACK","SCRIPT","IMPORT","FUNC","IF","ELSE","ELSEIF","WHILE","NULL","END","BREAK"};
-			l.datatypes = new String[]{"INT","FLOAT","STRING","OBJECT"};
-			l.operators = new int[]{'+','-','*','/','.','=','|','&','~','^','%'};
-			l.seperators = new int[]{','};
 			Compiler c = new Compiler();
 			String script = c.compile(l);
 			System.out.println("---Compiled script---");
@@ -90,28 +86,5 @@ public class TestMain
 			//System.err.println("PCR: " + script.pc);
 			ex.printStackTrace();
 		}
-	}
-
-	/*public static final int OP_NOP = 0;//No operation
-	public static final int OP_DEC = 1;//Declare variable
-	public static final int OP_DIS = 2;//Dispose variable
-	public static final int OP_SET = 3;//Set variable
-	public static final int OP_SETI = 4;//Set varaible immediate
-	public static final int OP_NEW = 5;//New object
-	
-	public static final int OP_CLS = 9;//Clear stack
-	public static final int OP_PSH = 10;//Push variable to arithmetic stack
-	public static final int OP_PSHI = 11;//Push value to arithmetic stack
-	public static final int OP_POP = 12;//Pop arithmetic stack to variable
-	public static final int OP_ADD = 13;//Add values on arithmetic stack
-	public static final int OP_SUB = 14;//Subtract values on arithmetic stack
-	public static final int OP_MUL = 15;//Multiply values on arithmetic stack
-	public static final int OP_DIV = 16;//Divide values on arithmetic stack
-	
-	public static final int OP_JMP = 21;//Jump unconditional
-	public static final int OP_JPT = 22;//Jump if value on stack is != 0
-	public static final int OP_JPF = 23;//Jump if value on stack is == 0
-	
-	public static final int OP_HLT = 255;//Halt operation*/
-	
+	}	
 }

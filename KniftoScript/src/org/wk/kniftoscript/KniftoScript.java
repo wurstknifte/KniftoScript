@@ -9,7 +9,9 @@ public class KniftoScript
 	public KniftoScript()
 	{
 		variables = new HashMap<String,Variable>();
+		functions = new HashMap<FuncIdent,Integer>();
 		aStack = new ArrayDeque<Object>();
+		callStack = new ArrayDeque<Integer>();
 	}
 	
 	public void loadScript(int[] data)
@@ -56,6 +58,11 @@ public class KniftoScript
 		return variables.get(name);
 	}
 	
+	public void preallocate() throws ScriptException
+	{
+		
+	}
+	
 	public void run() throws ScriptException
 	{
 		while(pc < script.length)
@@ -80,6 +87,9 @@ public class KniftoScript
 				break;
 			case OP_NEW:
 				newo();
+				break;
+			case OP_DEF:
+				def();
 				break;
 				
 			case OP_CLS:
@@ -123,7 +133,9 @@ public class KniftoScript
 				else
 					pc += 5;
 				break;
-				
+			case OP_CAL:
+				cal();
+				break;
 			case OP_PRINTSTACK:
 				debugInstruction(OP_PRINTSTACK);
 				break;
@@ -176,6 +188,12 @@ public class KniftoScript
 	private void newo()
 	{
 		pc++;
+	}
+	
+	private void def() throws ScriptException
+	{
+		String name = readString(pc+1);
+		
 	}
 	
 	private void push() throws ScriptException
@@ -298,6 +316,31 @@ public class KniftoScript
 		pc = jmpto;
 	}
 	
+	private void cal() throws ScriptException
+	{
+		String func = readString(pc+1);
+		
+		int[] sv = new int[aStack.size()];
+		Object[] oguz = aStack.toArray();
+		/*for(int i = aStack.size()-1; i>=0;i--)
+		{
+			sv[i] = Variable.getVariableTypeByValue(oguz[i]);
+		}*/
+		for(int i = 0; i < aStack.size();i++)
+		{
+			sv[i] = Variable.getVariableTypeByValue(oguz[i]);
+		}
+		FuncIdent ident = new FuncIdent(func, sv);
+		
+		if(functions.get(ident) == null)
+			throw new ScriptException("Function '" + ident.toString() + "' is not declared", pc);
+		
+		int funcAdr = functions.get(ident);
+		pc += 2 + func.length();
+		callStack.push(pc);
+		pc = funcAdr;
+	}
+	
 	private boolean checkCondition()
 	{
 		Object o = aStack.peek();
@@ -351,6 +394,7 @@ public class KniftoScript
 	public int pc;
 	private int[] script;
 	private ArrayDeque<Object> aStack;
+	private ArrayDeque<Integer> callStack;
 	
 	public HashMap<String,Variable> variables;
 	public HashMap<FuncIdent,Integer> functions;
@@ -377,6 +421,7 @@ public class KniftoScript
 	public static final int OP_JMP = 21;//Jump unconditional
 	public static final int OP_JPT = 22;//Jump if value on stack is != 0
 	public static final int OP_JPF = 23;//Jump if value on stack is == 0
+	public static final int OP_CAL = 24;//IMPLEMENT! Function call
 	
 	public static final int OP_HDL = 42;//Hard label
 	

@@ -250,6 +250,7 @@ public class Assembler
 		addOp("JMP",i);
 		addOp("JPT",i);
 		addOp("JPF",i);
+		addOp("CAL",s);
 		addOp("HDL",s);
 		addOp("HLT");
 		addOp("PRINTSTACK");

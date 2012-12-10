@@ -1,14 +1,17 @@
-;Script zum Test des Lexers und des compilers
+;Script zum Test des Lexers und des Compilers
 
 INT boo = 6
-FLOAT foo = (4+5)*10+boo*6
+FLOAT foo = ((4+5)*10+boo*6)/3
 
 PRINTSTACK
 
-FUNC fubar()
-	foo = -1
+FUNC test(int i, int j, float f)
+	foo = -5
+	;wird hier eingebaut, weil CAL noch nicht definiert ist
 END
 
-foo = 125
+test(boo,boo,boo*foo/(foo+1)) 
+
+foo = foo + 1
 
 END.

@@ -1,5 +1,7 @@
 package org.wk.kniftoscript;
 
+import java.util.Arrays;
+
 public class FuncIdent
 {
 
@@ -14,17 +16,43 @@ public class FuncIdent
 		parameterTypes = paramTypes;
 	}
 	
-	public boolean equals(Object o)
+	public int hashCode()
 	{
-		if(o == this)
+		final int prime = 31;
+		int result = 1;
+		result = prime * result
+				+ ((functionName == null) ? 0 : functionName.hashCode());
+		result = prime * result + Arrays.hashCode(parameterTypes);
+		return result;
+	}
+
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
 			return true;
-		
-		if(o instanceof FuncIdent)
+		if (obj == null)
+			return false;
+		if (!(obj instanceof FuncIdent))
+			return false;
+		FuncIdent other = (FuncIdent) obj;
+		if (functionName == null)
 		{
-			FuncIdent fi = (FuncIdent)o;
-			return (fi.functionName.equalsIgnoreCase(functionName)) && (fi.parameterTypes == parameterTypes);
-		}
-		return false;
+			if (other.functionName != null)
+				return false;
+		} else if (!functionName.equals(other.functionName))
+			return false;
+		if (!Arrays.equals(parameterTypes, other.parameterTypes))
+			return false;
+		return true;
+	}
+
+	public String toString()
+	{
+		String result = functionName + "(";
+		for(int i : parameterTypes)
+			result += Variable.typeIdToName(i) + ",";
+		result = result.substring(0, result.length()-1) + ")";
+		return result;
 	}
 	
 	public String functionName;

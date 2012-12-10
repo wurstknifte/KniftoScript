@@ -13,6 +13,10 @@ public class Compiler
 	
 	public String compile(Lexer l) throws IOException
 	{
+		l.keywords = new String[]{"PRINTSTACK","SCRIPT","IMPORT","FUNC","IF","ELSE","ELSEIF","WHILE","NULL","END","BREAK"};
+		l.datatypes = new String[]{"INT","FLOAT","STRING","OBJECT"};
+		l.operators = new int[]{'+','-','*','/','.','=','|','&','~','^','%'};
+		l.seperators = new int[]{','};
 		lexer = new TokenBuffer(l);
 		out = new StringBuilder();
 		program(false);
@@ -60,7 +64,7 @@ public class Compiler
 				
 				if(identFT.getValue().equals("("))
 				{
-					
+					functionCall(t);
 				}else if(identFT.getValue().equals("="))
 				{
 					assignment(t);
@@ -188,20 +192,39 @@ public class Compiler
 		if(t.getType() != Token.T_BRACE || !t.getValue().equals("("))
 			throw new CompilerException("Expected parameter list, found " + t.toString());
 		
+		//Eventuell vertauschen
+		out.append("DEF '" + funcName + "'\n");
+		out.append("JMP " + funcName + "_end\n");
+		
 		t = lexer.peekToken();
 		while((t.getType() != Token.T_BRACE || !t.getValue().equals(")")))
 		{
+			t = lexer.readToken();
+			if(t.getType() != Token.T_DATATYPE)
+				throw new CompilerException("Expected variable definition, found " + t.toString());
 			
+			String vname = variableDec(t);
+			out.append("POP '" + vname + "'\n");
 			
 			t = lexer.peekToken();
 			if(t == null)
+			{
 				throw new CompilerException("Token stream ended before closing parameter list!");//FIXME Compiler hängt statt diese Nachricht auszugeben
+			}else if(t.getType() == Token.T_SEPERATOR && t.getValue().equals(","))
+			{
+				lexer.readToken();
+				continue;
+			}else if(t.getType() == Token.T_BRACE && t.getValue().equals(")"))
+			{//FIXME Unprofessionell. Um Nörgler vorzubeugen, unbedingt fixen
+				lexer.readToken();
+				break;
+			}else
+			{
+				throw new CompilerException("Illegal statement in parameter list: " + t.toString());
+			}
 		}
 		
 		System.out.println("Function declaration: " + funcName);
-		
-		out.append("JMP " + funcName + "_end\n");
-		out.append("DEF '" + funcName + "'\n");
 		
 		program(true);
 		
@@ -209,7 +232,36 @@ public class Compiler
 		System.out.println("End function");
 	}
 	
-	private void variableDec(Token type) throws IOException
+	private void functionCall(Token ident) throws IOException
+	{
+		String fname = ident.getValue();
+		
+		Token t = lexer.peekToken();
+		while((t.getType() != Token.T_BRACE || !t.getValue().equals(")")))
+		{
+			expression();
+			
+			t = lexer.peekToken();
+			if(t == null)
+			{
+				throw new CompilerException("Token stream ended before closing parameter list!");//FIXME Compiler hängt statt diese Nachricht auszugeben
+			}else if(t.getType() == Token.T_SEPERATOR && t.getValue().equals(","))
+			{
+				lexer.readToken();
+				continue;
+			}else if(t.getType() == Token.T_BRACE && t.getValue().equals(")"))
+			{//FIXME Unprofessionell. Um Nörgler vorzubeugen, unbedingt fixen
+				lexer.readToken();
+				break;
+			}else
+			{
+				throw new CompilerException("Illegal statement in parameter list: " + t.toString());
+			}
+		}
+		out.append("CAL '" + fname + "'\n");
+	}
+	
+	private String variableDec(Token type) throws IOException
 	{
 		int typeid = Variable.typeNameToId(type.getValue());
 		if(typeid == -1)
@@ -229,6 +281,7 @@ public class Compiler
 		}
 		
 		System.out.println("Declared variable '" + name.getValue() + "' as " + type.getValue());
+		return name.getValue();
 	}
 	
 	private TokenBuffer lexer;
