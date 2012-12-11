@@ -1,5 +1,6 @@
 package org.wk.kniftoscript;
 
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 
@@ -14,9 +15,28 @@ public class KniftoScript
 		callStack = new ArrayDeque<Integer>();
 	}
 	
-	public void loadScript(int[] data)
+	public void loadScript(int[] data) throws IOException, ScriptException
 	{
-		script = data;
+		int headlen = data[0];
+		headlen |= data[1] << 8;
+		if(data.length < (headlen + 4))
+			throw new IOException("Corrupt script header! Length field invalid");
+		
+		int checklen = data[headlen-1];
+		checklen = data[headlen];
+		if(checklen != headlen)
+			throw new IOException("Corrupt script header! Length check token does not match");
+		
+		int[] preallocData = new int[headlen];
+		for(int i = 2; i<headlen+1;i++)
+			preallocData[i] = data[i];
+		preallocate(preallocData);
+		
+		int[] scriptdata;
+		for(int j = headlen+4;j < data.length;i++)
+		{
+			
+		}
 	}
 	
 	public void declareVar(String name, int type) throws ScriptException
@@ -58,7 +78,7 @@ public class KniftoScript
 		return variables.get(name);
 	}
 	
-	public void preallocate() throws ScriptException
+	public void preallocate(int prog[]) throws ScriptException
 	{
 		
 	}
