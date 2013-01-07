@@ -15,12 +15,21 @@ public class TokenBuffer
 	private void fillBuffer(Lexer l) throws IOException
 	{
 		ArrayList<Token> ba = new ArrayList<Token>();
+		ArrayList<Integer> lines = new ArrayList<Integer>();
 		Token t;
 		while((t = l.readToken()) != null)
 		{
 			ba.add(t);
+			lines.add(l.getCurrentLine());
 		}
 		buffer = ba.toArray(new Token[ba.size()]);
+		Integer[] lbtmp = lines.toArray(new Integer[lines.size()]);
+		lineBuffer = new int[lines.size()];
+		for(int isd = 0;isd<lbtmp.length;isd++)
+		{
+			Integer isdi = lbtmp[isd];
+			lineBuffer[isd] = isdi.intValue();
+		}
 	}
 	
 	public Token readToken()
@@ -67,6 +76,13 @@ public class TokenBuffer
 		pointer += i;
 	}
 	
+	public int getCurrentLine()
+	{
+		return lineBuffer[pointer];
+	}
+	
 	private int pointer;
 	private Token[] buffer;
+	
+	private int[] lineBuffer;
 }

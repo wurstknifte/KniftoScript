@@ -1,6 +1,7 @@
 package org.wk.kniftoscript.comp;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.wk.kniftoscript.Variable;
 
@@ -13,25 +14,35 @@ public class Compiler
 	
 	public String compile(Lexer l) throws IOException
 	{
-		l.keywords = new String[]{"PRINTSTACK","SCRIPT","IMPORT","FUNC","IF","ELSE","ELSEIF","WHILE","NULL","END","BREAK"};
+		l.keywords = new String[]{"PRINTSTACK","SCRIPT","IMPORT","FUNC","RETURN","IF","ELSE","ELSEIF","WHILE","NULL","END","BREAK"};
 		l.datatypes = new String[]{"INT","FLOAT","STRING","OBJECT"};
-		l.operators = new int[]{'+','-','*','/','.','=','|','&','~','^','%'};
+		l.operators = new int[]{'+','-','*','/','.','=','>','<','!','|','&','~','^','%'};
 		l.seperators = new int[]{','};
+		l.endToken = ';';
 		lexer = new TokenBuffer(l);
-		out = new StringBuilder();
+		asmout = new ASMBuilder();
+		headOut = new StringBuilder();
 		program(false);
-		return out.toString();
+		return joinHeadBody();
+	}
+	
+	private String joinHeadBody()
+	{
+		return headOut.toString() + "HEADEND\n" + asmout.getAssembly();
 	}
 	
 	private void program(boolean func) throws IOException
 	{
 		Token t;
 		
+		ArrayList<Variable> declaredVars;
+		declaredVars = new ArrayList<Variable>();
+		
 		while((t = lexer.readToken()) != null)
 		{
 			
 			if(t.getType() == Token.T_DATATYPE)
-				variableDec(t);
+				declaredVars.add(variableDec(t));
 		
 			if(t.getType() == Token.T_KEYWORD)
 			{
@@ -49,15 +60,22 @@ public class Compiler
 				}
 				
 				if(t.getValue().equalsIgnoreCase("END"))
+				{
 					return;
+				}
 				
 				if(t.getValue().equalsIgnoreCase("IF"))
 					ifStatement();
+				
+				if(t.getValue().equalsIgnoreCase("RETURN"))
+				{	
+					returnStatement();
+				}
 			}
 			
 			if(t.getType() == Token.T_IDENTIFIER)
 			{
-				Token identFT = lexer.readToken();
+				Token identFT = lexer.peekToken();
 				
 				if(identFT.getType() != Token.T_OPERATOR && identFT.getType() != Token.T_BRACE)
 					throw new CompilerException("Assignment or function call expected. Bad token: " + identFT.toString());
@@ -67,6 +85,7 @@ public class Compiler
 					functionCall(t);
 				}else if(identFT.getValue().equals("="))
 				{
+					lexer.readToken();
 					assignment(t);
 				}else
 				{
@@ -77,11 +96,44 @@ public class Compiler
 		throw new CompilerException("Token stream ended before end of program block");
 	}
 	
-	//<expression> ::= <term> [<addop> <term>]*
+	//<expression> ::= <arithmetic expression> [<relop> <arithmetic expression>]*
+	//<arithmetic expression> ::= <term> [<addop> <term>]*
 	//<term> ::= <signed factor> [<mulop> factor]*
 	//<signed factor> ::= [<addop>] <factor>
 	//<factor> ::= <integer> | <variable> | (<expression>)
 	private void expression() throws IOException
+	{
+		arithmeticExpression();
+		Token t = lexer.peekToken();
+		while(isRelop(t))
+		{
+			lexer.readToken();
+			arithmeticExpression();
+			if(t.getValue().equals("=="))
+			{
+				out.append("CMP\n");
+			}else if(t.getValue().equals("<"))
+			{
+				out.append("SMT\n");
+			}else if(t.getValue().equals(">"))
+			{
+				out.append("BGT\n");
+			}else if(t.getValue().equals("<="))
+			{
+				out.append("SOET\n");
+			}else if(t.getValue().equals(">="))
+			{
+				out.append("BOET\n");
+			}else if(t.getValue().equals("!="))
+			{
+				out.append("CMP\n");
+				out.append("INV\n");
+			}
+			t = lexer.peekToken();
+		}
+	}
+	
+	private void arithmeticExpression() throws IOException
 	{
 		term();
 		Token t = lexer.peekToken();
@@ -126,7 +178,7 @@ public class Compiler
 		factor();
 		
 		if(negate)
-			out.append("NEG\n");//Negating code here
+			out.append("NEG\n");
 	}
 	
 	private void factor() throws IOException
@@ -137,17 +189,24 @@ public class Compiler
 			out.append("PSHI '" + t.getValue() + "'\n");
 		}else if(t.getType() == Token.T_IDENTIFIER)
 		{
-			out.append("PSH '" + t.getValue() + "'\n");
+			Token l = lexer.peekToken();
+			if(l.getType() == Token.T_BRACE && l.getValue().equals("("))
+			{
+				functionCall(t);
+			}else
+			{
+				out.append("PSH '" + t.getValue() + "'\n");
+			}
 		}else if(t.getType() == Token.T_BRACE)
 		{
 			if(!t.getValue().equals("("))
-				throw new CompilerException("Expected opening brace, found " + t.getValue());
+				throw new CompilerException("Expected opening brace, found " + t.toString());
 			
 			expression();
 			
 			Token cb = lexer.readToken();
 			if(!(cb.getValue().equals(")") && cb.getType() == Token.T_BRACE))
-				throw new CompilerException("Expected closing brace, found " + cb.getValue());
+				throw new CompilerException("Expected closing brace, found " + cb.toString());
 		}
 	}
 	
@@ -165,18 +224,34 @@ public class Compiler
 		return false;
 	}
 	
+	private boolean isRelop(Token t)
+	{
+		if(t.getType() == Token.T_OPERATOR)
+			return t.getValue().equals("<") || t.getValue().equals(">") || t.getValue().equals("==")
+					|| t.getValue().equals("<=") || t.getValue().equals(">=") || t.getValue().equals("!=");
+		return false;
+	}
+	
 	private void assignment(Token ident) throws IOException
 	{
 		expression();
-		System.out.println("SET " + ident.getValue() + " TO X");
 		out.append("POP '" + ident.getValue() + "'\n");
 	}
 	
 	private void ifStatement() throws IOException
 	{
-		//Token t = lexer.readToken();
 		expression();
+		out.append("JPF ifNo" + ifBlockCount + "_end\n");
 		program(true);
+		out.append("ifNo" + ifBlockCount + "_end:\n");
+	}
+	
+	private void returnStatement() throws IOException
+	{
+		Token t = lexer.peekToken();
+		if(t.getType() != Token.T_KEYWORD)
+			expression();
+		out.append("RET\n");
 	}
 	
 	private void functionDec() throws IOException
@@ -193,8 +268,11 @@ public class Compiler
 			throw new CompilerException("Expected parameter list, found " + t.toString());
 		
 		//Eventuell vertauschen
-		out.append("DEF '" + funcName + "'\n");
+		//out.append("DEF '" + funcName + "'\n");
 		out.append("JMP " + funcName + "_end\n");
+		out.append(funcName + "_start:\n");
+		
+		ArrayList<Variable> parameters = new ArrayList<Variable>(); 
 		
 		t = lexer.peekToken();
 		while((t.getType() != Token.T_BRACE || !t.getValue().equals(")")))
@@ -203,8 +281,9 @@ public class Compiler
 			if(t.getType() != Token.T_DATATYPE)
 				throw new CompilerException("Expected variable definition, found " + t.toString());
 			
-			String vname = variableDec(t);
-			out.append("POP '" + vname + "'\n");
+			Variable var = variableDec(t);
+			parameters.add(var);
+			out.append("POP '" + var.getVarName() + "'\n");
 			
 			t = lexer.peekToken();
 			if(t == null)
@@ -224,10 +303,19 @@ public class Compiler
 			}
 		}
 		
+		String defInstr = "DEF '" + funcName + "'," + funcName + "_start,"; 
+		for(Variable v : parameters)
+		{
+			defInstr += v.getVarType() + ",";
+		}
+		defInstr = defInstr.substring(0, defInstr.length() - 1);
+		headOut.append(defInstr + "\n");
+		
 		System.out.println("Function declaration: " + funcName);
 		
 		program(true);
 		
+		out.append("RET\n");
 		out.append(funcName + "_end:\n");
 		System.out.println("End function");
 	}
@@ -236,7 +324,10 @@ public class Compiler
 	{
 		String fname = ident.getValue();
 		
-		Token t = lexer.peekToken();
+		Token t = lexer.readToken();
+		if((t.getType() != Token.T_BRACE) && !t.getValue().equals("("))
+			throw new CompilerException("Expected opening brace, found " + t.toString());
+		
 		while((t.getType() != Token.T_BRACE || !t.getValue().equals(")")))
 		{
 			expression();
@@ -261,7 +352,7 @@ public class Compiler
 		out.append("CAL '" + fname + "'\n");
 	}
 	
-	private String variableDec(Token type) throws IOException
+	private Variable variableDec(Token type) throws IOException
 	{
 		int typeid = Variable.typeNameToId(type.getValue());
 		if(typeid == -1)
@@ -281,9 +372,12 @@ public class Compiler
 		}
 		
 		System.out.println("Declared variable '" + name.getValue() + "' as " + type.getValue());
-		return name.getValue();
+		return new Variable(name.getValue(),typeid);
 	}
 	
+	private int ifBlockCount = 0;
+	
 	private TokenBuffer lexer;
-	private StringBuilder out;
+	private ASMBuilder asmout;
+	private StringBuilder headOut;
 }

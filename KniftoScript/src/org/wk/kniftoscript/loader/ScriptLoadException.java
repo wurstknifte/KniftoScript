@@ -1,6 +1,8 @@
 package org.wk.kniftoscript.loader;
 
-public class ScriptLoadException extends Exception
+import java.io.IOException;
+
+public class ScriptLoadException extends IOException
 {
 
 	public ScriptLoadException() 

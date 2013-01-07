@@ -2,14 +2,19 @@ package org.wk.kniftoscript;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+
+import org.wk.kniftoscript.loader.ScriptLoadException;
 
 public class KniftoScript
 {
 
 	public KniftoScript()
 	{
-		variables = new HashMap<String,Variable>();
+		//variables = new HashMap<String,Variable>();
+		variables = new VariableStack();
 		functions = new HashMap<FuncIdent,Integer>();
 		aStack = new ArrayDeque<Object>();
 		callStack = new ArrayDeque<Integer>();
@@ -17,26 +22,28 @@ public class KniftoScript
 	
 	public void loadScript(int[] data) throws IOException, ScriptException
 	{
-		int headlen = data[0];
-		headlen |= data[1] << 8;
-		if(data.length < (headlen + 4))
-			throw new IOException("Corrupt script header! Length field invalid");
-		
-		int checklen = data[headlen-1];
-		checklen = data[headlen];
-		if(checklen != headlen)
-			throw new IOException("Corrupt script header! Length check token does not match");
-		
-		int[] preallocData = new int[headlen];
-		for(int i = 2; i<headlen+1;i++)
-			preallocData[i] = data[i];
-		preallocate(preallocData);
-		
-		int[] scriptdata;
-		for(int j = headlen+4;j < data.length;i++)
+		script = data;
+		headExecution = true;
+		try
 		{
-			
+			run();
+		}catch(ScriptException e)
+		{
+			throw new ScriptLoadException("Script header error, caused by:\n" + e.toString());
 		}
+		headExecution = false;
+		int[] headlessData = new int[data.length];
+		for(int i = 0; i < data.length;i++)
+		{
+			if(i < pc)
+				headlessData[i] = OP_NOP;
+			else
+				headlessData[i] = data[i];
+		}
+		
+		System.out.println(headlessData.length + ";" + data.length);
+		pc = 0;
+		script = headlessData;
 	}
 	
 	public void declareVar(String name, int type) throws ScriptException
@@ -44,38 +51,31 @@ public class KniftoScript
 		if(Variable.typeIdToName(type) == null)
 			throw new ScriptException("Invalid data type id: " + type, pc);
 		
-		if(variables.get(name) != null)
-			throw new ScriptException("Variable " + name + " is already declared", pc);
-		
 		Variable var = new Variable(name,type);
-		variables.put(name, var);	
+		variables.declareVariable(name, var);	
 	}
 	
 	public void disposeVar(String name) throws ScriptException
 	{
-		if(variables.get(name) == null)
-		{
-			throw new ScriptException("Could not dispose: Variable " + name + " is not declared", pc);
-		}
-		variables.remove(name);
+		variables.disposeVariable(name);
 	}
 	
 	public void setVariable(String name, Object val) throws ScriptException
 	{
-		if(variables.get(name) == null)
-		{
-			throw new ScriptException("Could not set: Variable " + name + " is not declared", pc);
-		}
-		variables.get(name).setVar(val);
+		variables.getVariable(name).setVar(val);
 	}
 	
 	public Variable getVariable(String name) throws ScriptException
 	{
-		if(variables.get(name) == null)
-		{
-			throw new ScriptException("Variable " + name + " is not declared", pc);
-		}
-		return variables.get(name);
+		return variables.getVariable(name);
+	}
+	
+	public void declareFunction(FuncIdent ident, int adress) throws ScriptException
+	{
+		if(functions.get(ident) != null)
+			throw new ScriptException("Function " + ident.toString() + " is already declared", pc);
+		
+		functions.put(ident, adress);
 	}
 	
 	public void preallocate(int prog[]) throws ScriptException
@@ -137,6 +137,33 @@ public class KniftoScript
 			case OP_DIV:
 				div();
 				break;
+			case OP_NEG:
+				neg();
+				break;
+			case OP_CMP:
+				cmp();
+				break;
+			case OP_INV:
+				inv();
+				break;
+			case OP_SMT:
+				smt();
+				break;
+			case OP_BGT:
+				bgt();
+				break;
+			case OP_SOET:
+				soet();
+				break;
+			case OP_BOET:
+				boet();
+				break;
+			case OP_LOR:
+				lor();
+				break;
+			case OP_LAND:
+				land();
+				break;
 				
 			case OP_JMP:
 				jmp();
@@ -156,6 +183,19 @@ public class KniftoScript
 			case OP_CAL:
 				cal();
 				break;
+			case OP_RET:
+				ret();
+				break;
+			case OP_HEADEND:
+				if(headExecution)
+				{
+					pc++;
+					headExecution = false;
+					return;
+				}else
+				{	
+					throw new ScriptException("Header end in script body. Dafuq?",pc);
+				}
 			case OP_PRINTSTACK:
 				debugInstruction(OP_PRINTSTACK);
 				break;
@@ -185,9 +225,11 @@ public class KniftoScript
 	{
 		String name1 = readString(pc+1);
 		String name2 = readString(pc+2+name1.length());
-		if(variables.get(name2) == null)
+		if(!variables.isDeclared(name2))
 			throw new ScriptException("Could not set: Variable " + name2 + " not declared!", pc);
-		setVariable(name1,variables.get(name2).getValue());
+		if(!variables.isDeclared(name1))
+			throw new ScriptException("Could not set: Variable " + name1 + " not declared!", pc);
+		setVariable(name1,variables.getVariable(name2).getValue());
 		pc += 3 + name1.length() + name2.length();
 	}
 	
@@ -212,8 +254,23 @@ public class KniftoScript
 	
 	private void def() throws ScriptException
 	{
+		ArrayList<Integer> prms = new ArrayList<Integer>();
 		String name = readString(pc+1);
-		
+		int adress = readInt(pc + 2 + name.length());
+		int params = getByte(pc + 6 + name.length());
+		for(int i = 0; i<params;i++)
+		{
+			prms.add(getByte(pc + 7 + name.length() + i));
+		}
+		pc += (7 + name.length() + prms.size());
+		int[] types = new int[prms.size()];
+		for(int i = 0; i< prms.size();i++)
+		{
+			types[i] = prms.get(i);
+		}
+		FuncIdent id = new FuncIdent(name,types);
+		declareFunction(id,adress);
+		System.out.println("Function declared: " + id.toString());
 	}
 	
 	private void push() throws ScriptException
@@ -241,6 +298,11 @@ public class KniftoScript
 	private void pop() throws ScriptException
 	{
 		String varname = readString(pc+1);
+		if(varname.equalsIgnoreCase("null"))
+		{
+			aStack.pop();
+			return;
+		}
 		setVariable(varname, aStack.pop());
 		pc += 2 + varname.length();
 	}
@@ -301,6 +363,176 @@ public class KniftoScript
 		pc += 1;
 	}
 	
+	private void neg() throws ScriptException
+	{
+		Object op = aStack.pop();
+		
+		if(!isNumericType(op))
+			throw new ScriptException("Tried to perform arithmetic operation on non-numeric value", pc);
+		
+		float f = -numoToFloat(op);
+		aStack.push(Float.valueOf(f));
+		pc += 1;
+	}
+	
+	private void cmp()
+	{
+		Object op2 = aStack.pop();
+		Object op1 = aStack.pop();
+		
+		if(op2 instanceof String || op1 instanceof String)
+		{
+			if(op2.toString().equals(op1.toString()))
+				aStack.push(TRUE_VAL);
+			else
+				aStack.push(FALSE_VAL);
+			
+			pc += 1;
+			return;
+		}
+		if(isNumericType(op2) && isNumericType(op1))
+		{
+			float f1 = numoToFloat(op1);
+			float f2 = numoToFloat(op2);
+			if(f1 == f2)
+				aStack.push(TRUE_VAL);
+			else
+				aStack.push(FALSE_VAL);
+			
+			pc += 1;
+			return;
+		}
+		aStack.push(FALSE_VAL);
+		pc += 1;
+	}
+	
+	private void bgt() throws ScriptException
+	{
+		Object op2 = aStack.pop();
+		Object op1 = aStack.pop();
+		
+		if(!(isNumericType(op1) && isNumericType(op2)))
+			throw new ScriptException("Tried to perform arithmetic relation on non-numeric value", pc);
+		
+		float f1 = numoToFloat(op1);
+		float f2 = numoToFloat(op2);
+		
+		if(f1 > f2)
+			aStack.push(TRUE_VAL);
+		else
+			aStack.push(FALSE_VAL);
+		
+		pc += 1;
+	}
+	
+	private void boet() throws ScriptException
+	{
+		Object op2 = aStack.pop();
+		Object op1 = aStack.pop();
+		
+		if(!(isNumericType(op1) && isNumericType(op2)))
+			throw new ScriptException("Tried to perform arithmetic relation on non-numeric value", pc);
+		
+		float f1 = numoToFloat(op1);
+		float f2 = numoToFloat(op2);
+		
+		if(f1 >= f2)
+			aStack.push(TRUE_VAL);
+		else
+			aStack.push(FALSE_VAL);
+		
+		pc += 1;
+	}
+	
+	private void soet() throws ScriptException
+	{
+		Object op2 = aStack.pop();
+		Object op1 = aStack.pop();
+		
+		if(!(isNumericType(op1) && isNumericType(op2)))
+			throw new ScriptException("Tried to perform arithmetic relation on non-numeric value", pc);
+		
+		float f1 = numoToFloat(op1);
+		float f2 = numoToFloat(op2);
+		
+		if(f1 <= f2)
+			aStack.push(TRUE_VAL);
+		else
+			aStack.push(FALSE_VAL);
+		
+		pc += 1;
+	}
+	
+	private void smt() throws ScriptException
+	{
+		Object op2 = aStack.pop();
+		Object op1 = aStack.pop();
+		
+		if(!(isNumericType(op1) && isNumericType(op2)))
+			throw new ScriptException("Tried to perform arithmetic relation on non-numeric value", pc);
+		
+		float f1 = numoToFloat(op1);
+		float f2 = numoToFloat(op2);
+		
+		if(f1 < f2)
+			aStack.push(TRUE_VAL);
+		else
+			aStack.push(FALSE_VAL);
+		
+		pc += 1;
+	}
+	
+	private void lor() throws ScriptException
+	{
+		Object op2 = aStack.pop();
+		Object op1 = aStack.pop();
+		
+		if(!(isNumericType(op1) && isNumericType(op2)))
+			throw new ScriptException("Tried to perform boolean arithmetic operation on non-numeric value", pc);
+		
+		float f1 = numoToFloat(op1);
+		float f2 = numoToFloat(op2);
+		
+		if(f1 > 0 || f2 > 0)
+			aStack.push(TRUE_VAL);
+		else
+			aStack.push(FALSE_VAL);
+		
+		pc += 1;
+	}
+	
+	private void land() throws ScriptException
+	{
+		Object op2 = aStack.pop();
+		Object op1 = aStack.pop();
+		
+		if(!(isNumericType(op1) && isNumericType(op2)))
+			throw new ScriptException("Tried to perform boolean arithmetic operation on non-numeric value", pc);
+		
+		float f1 = numoToFloat(op1);
+		float f2 = numoToFloat(op2);
+		
+		if(f1 > 0 && f2 > 0)
+			aStack.push(TRUE_VAL);
+		else
+			aStack.push(FALSE_VAL);
+		
+		pc += 1;
+	}
+	
+	
+	private void inv()
+	{
+		if(checkCondition())
+		{
+			aStack.push(FALSE_VAL);
+		}else
+		{
+			aStack.push(TRUE_VAL);
+		}
+		pc += 1;
+	}
+	
 	private void debugInstruction(int instr)
 	{
 		if(instr == OP_PRINTSTACK)
@@ -339,31 +571,47 @@ public class KniftoScript
 	private void cal() throws ScriptException
 	{
 		String func = readString(pc+1);
-		
+		//Stack muss umgedreht werden, bessere Methode wäre wünschenswert, aber nicht erforderlich
 		int[] sv = new int[aStack.size()];
-		Object[] oguz = aStack.toArray();
-		/*for(int i = aStack.size()-1; i>=0;i--)
+		Iterator<Object> iter = aStack.descendingIterator();
+		int i = 0;
+		while(iter.hasNext())
 		{
-			sv[i] = Variable.getVariableTypeByValue(oguz[i]);
-		}*/
-		for(int i = 0; i < aStack.size();i++)
-		{
-			sv[i] = Variable.getVariableTypeByValue(oguz[i]);
+			sv[i] = Variable.getVariableTypeByValue(iter.next());
+			i++;
 		}
-		FuncIdent ident = new FuncIdent(func, sv);
+		
+		Object[] oguz = aStack.toArray();
+		aStack.clear();
+		for(int j = 0;j<oguz.length;j++)
+		{
+			aStack.push(oguz[j]);
+		}
+		
+		FuncIdent ident = new FuncIdent(func, sv); 
 		
 		if(functions.get(ident) == null)
 			throw new ScriptException("Function '" + ident.toString() + "' is not declared", pc);
 		
 		int funcAdr = functions.get(ident);
 		pc += 2 + func.length();
+		variables.newStackFrame();
 		callStack.push(pc);
 		pc = funcAdr;
 	}
 	
+	private void ret() throws ScriptException
+	{
+		if(callStack.size() == 0)
+			throw new ScriptException("Issued return while call stack was empty");
+		
+		variables.destroyStackFrame();
+		pc = callStack.pop().intValue();
+	}
+	
 	private boolean checkCondition()
 	{
-		Object o = aStack.peek();
+		Object o = aStack.pop();
 		if(o instanceof Integer)
 		{
 			if(((Integer)o) != 0)
@@ -416,8 +664,15 @@ public class KniftoScript
 	private ArrayDeque<Object> aStack;
 	private ArrayDeque<Integer> callStack;
 	
-	public HashMap<String,Variable> variables;
+	private boolean headExecution;
+	
+	//public HashMap<String,Variable> variables;
+	public VariableStack variables;
 	public HashMap<FuncIdent,Integer> functions;
+	
+	public static final Integer TRUE_VAL = new Integer(1);
+	public static final Integer FALSE_VAL = new Integer(0);
+	
 	
 	public static final int OP_NOP = 0;//No operation
 	public static final int OP_DEC = 1;//Declare variable
@@ -437,14 +692,24 @@ public class KniftoScript
 	public static final int OP_MUL = 15;//Multiply values on arithmetic stack
 	public static final int OP_DIV = 16;//Divide values on arithmetic stack
 	public static final int OP_NEG = 17;//Negates value on top of stack
+	public static final int OP_CMP = 18;//Compares two values on top of stack
+	public static final int OP_INV = 19;//Invertes boolean value on top of stack
+	public static final int OP_SMT = 20;//If top < top-1 -> true [Smaller than]
+	public static final int OP_BGT = 21;//If top > top-1 -> true [Bigger than]
+	public static final int OP_SOET = 22;//If top <= top-1 -> true [Smaller or equal than]
+	public static final int OP_BOET = 23;//If top >= top-1 -> true [Bigger or equal than]
+	public static final int OP_LOR = 24;//If top || top-1 -> true [Logical or]
+	public static final int OP_LAND = 25;//If top && top-1 -> true [Logical and]
 	
-	public static final int OP_JMP = 21;//Jump unconditional
-	public static final int OP_JPT = 22;//Jump if value on stack is != 0
-	public static final int OP_JPF = 23;//Jump if value on stack is == 0
-	public static final int OP_CAL = 24;//IMPLEMENT! Function call
+	public static final int OP_JMP = 30;//Jump unconditional
+	public static final int OP_JPT = 31;//Jump if value on stack is != 0
+	public static final int OP_JPF = 32;//Jump if value on stack is == 0
+	public static final int OP_CAL = 33;//Function call
+	public static final int OP_RET = 34;//Function return
 	
 	public static final int OP_HDL = 42;//Hard label
 	
+	public static final int OP_HEADEND = 253;//Marks end of script header
 	public static final int OP_PRINTSTACK = 254;//Print contents of stack to stdout
 	public static final int OP_HLT = 255;//Halt operation
 }

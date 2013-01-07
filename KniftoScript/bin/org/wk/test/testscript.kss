@@ -1,17 +1,29 @@
 ;Script zum Test des Lexers und des Compilers
 
-INT boo = 6
-FLOAT foo = ((4+5)*10+boo*6)/3
+float foo = 0
+int max = 1000
 
-PRINTSTACK
+func test(int i,float f)
+	i = i + 1
+	if(i == max+1)
+		return
+	end
+	foo = foo + f
+	test(i,f)
+end
 
-FUNC test(int i, int j, float f)
-	foo = -5
-	;wird hier eingebaut, weil CAL noch nicht definiert ist
-END
+func returnTest(int i)
+	if(i == 0)
+		return 1
+	end
+	
+	if(i != 0)
+		return (i * returnTest(i-1))
+	end
+end
 
-test(boo,boo,boo*foo/(foo+1)) 
+test(0,1.0)
 
-foo = foo + 1
+foo = returnTest(4)
 
-END.
+end.

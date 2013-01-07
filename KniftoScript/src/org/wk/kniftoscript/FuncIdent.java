@@ -7,7 +7,7 @@ public class FuncIdent
 
 	public FuncIdent(String name)
 	{
-		this(name,null);
+		this(name,new int[]{});
 	}
 	
 	public FuncIdent(String name, int[] paramTypes)
@@ -22,7 +22,9 @@ public class FuncIdent
 		int result = 1;
 		result = prime * result
 				+ ((functionName == null) ? 0 : functionName.hashCode());
-		result = prime * result + Arrays.hashCode(parameterTypes);
+		for(int i = 0; i<parameterTypes.length;i++)
+			result = prime * result + parameterTypes[i];
+		//result = prime * result + Arrays.hashCode(parameterTypes);
 		return result;
 	}
 
@@ -49,9 +51,11 @@ public class FuncIdent
 	public String toString()
 	{
 		String result = functionName + "(";
-		for(int i : parameterTypes)
-			result += Variable.typeIdToName(i) + ",";
-		result = result.substring(0, result.length()-1) + ")";
+		for(int i = 0; i<parameterTypes.length;i++)
+			result += Variable.typeIdToName(parameterTypes[i]) + ",";
+		if(parameterTypes.length != 0)
+			result = result.substring(0, result.length()-1);
+		result += ")";
 		return result;
 	}
 	

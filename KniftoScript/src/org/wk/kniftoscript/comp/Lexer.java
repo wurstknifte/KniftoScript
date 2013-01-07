@@ -28,9 +28,19 @@ public class Lexer
 				return new Token(Token.T_LITERAL_INT,s);
 			}else if(isOperator(lchar))
 			{
-				char c = (char)lchar;
+				String op = "" + (char)lchar;
 				readNext();
-				return new Token(Token.T_OPERATOR,"" + c);
+				if(isOperator(lchar))
+				{
+					op += (char)lchar;
+					readNext();
+				}
+				/*while(isOperator(lchar))
+				{
+					op += (char)lchar;
+					readNext();
+				}*/
+				return new Token(Token.T_OPERATOR,op);
 			}else if(isBrace(lchar))
 			{
 				char c = (char)lchar;
@@ -89,9 +99,9 @@ public class Lexer
 		expectDigit();
 		String s = "" + (char)lchar;
 		readNext();
-		if(lchar == 'x')
-			readNext();//TODO Implement better hex digit recognition here
-		while(isDigit(lchar))
+		//if(lchar == 'x')
+		//	readNext();//TODO Implement better hex digit recognition here
+		while(isDigit(lchar) || lchar == '.')
 		{
 			s += (char)lchar;
 			readNext();
@@ -257,6 +267,7 @@ public class Lexer
 	public String[] datatypes = new String[]{};// = new String[]{"INT","FLOAT","STRING","OBJECT"};
 	public int[] operators = new int[]{};// = new int[]{'+','-','*','/','.','=','|','&','~','^','%'};
 	public int[] seperators = new int[]{};//= new int[]{',',':'};
+	public int endToken;// = ';';
 	
 	public static final int C_SPACE = ' ';
 	public static final int C_TAB = '\t';

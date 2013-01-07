@@ -93,7 +93,7 @@ public class Assembler
 		String lbl = t.getValue();
 		Token dp = lexer.readToken();
 		if(dp.getType() != Token.T_SEPERATOR && !dp.getValue().equals(":"))
-			throw new CompilerException("ASM: Bad label definition, expected :, found " + dp.toString());
+			throw new CompilerException("ASM: Bad label definition or unknown mnenomic(" + lbl + "); expected :, found " + dp.toString());
 		
 		labels.put(lbl,out.size());
 		System.out.println("Defined label: " + lbl + " = " + labels.get(lbl));
@@ -147,28 +147,48 @@ public class Assembler
 	
 	private void funcDef() throws CompilerException
 	{
+		//DEF Instruction = <Opcode><Name><Adress><Parameter count>[<Parameter Type>]*
 		Token t = lexer.readToken();
 		if(t.getType() != Token.T_LITERAL_STRING)
 			throw new CompilerException("ASM: Expected string literal, found " + t.toString());
-		
 		String name = t.getValue();
+		
+		Token label = lexer.readToken();
+		if(!(label.getType() == Token.T_SEPERATOR && label.getValue().equals(",")))
+			throw new CompilerException("ASM: Expected seperator, found " + t.toString());
+		label = lexer.readToken();
+		
+		out.write(KniftoScript.OP_DEF);
+		printString(name);
+		if(label.getType() == Token.T_IDENTIFIER)
+		{
+			neededLabels.put(out.size(), label.getValue());
+			printInt(0);
+		}else if(label.getType() == Token.T_LITERAL_INT)
+		{
+			printInt(Integer.parseInt(label.getValue()));
+		}else
+		{
+			throw new CompilerException("ASM: Expected adress or label, found " + t.toString());
+		}
+		
 		ArrayList<Integer> params = new ArrayList<Integer>();
 		
 		t = lexer.peekToken();
-		while(t.getType() == Token.T_SEPERATOR && t.getValue() == ",")
+		while(t.getType() == Token.T_SEPERATOR && t.getValue().equals(","))
 		{
 			lexer.readToken();
 			t = lexer.readToken();
 			if(t.getType() != Token.T_LITERAL_INT)
 				throw new CompilerException("ASM: Expected int literal for datatype, found " + t.toString());
 			
-			int typeid = Variable.typeNameToId(t.getValue());
+			int typeid = Integer.parseInt(t.getValue());//Variable.typeNameToId(t.getValue());
 			params.add(typeid);
 			t = lexer.peekToken();
 		}
-		out.write(KniftoScript.OP_DEF);
-		printString(name);
+		
 		out.write(params.size() & 0xFF);
+		System.out.println(params.size());
 		for(int dt : params)
 			out.write(dt & 0xff);
 	}
@@ -247,13 +267,23 @@ public class Assembler
 		addOp("MUL");
 		addOp("DIV");
 		addOp("NEG");
+		addOp("CMP");
+		addOp("BGT");
+		addOp("SMT");
+		addOp("BOET");
+		addOp("SOET");
+		addOp("LOR");
+		addOp("LAND");
+		addOp("INV");
 		addOp("JMP",i);
 		addOp("JPT",i);
 		addOp("JPF",i);
 		addOp("CAL",s);
+		addOp("RET");
 		addOp("HDL",s);
 		addOp("HLT");
 		addOp("PRINTSTACK");
+		addOp("HEADEND");
 	}
 	
 	private void addOp(String mn, int... params)
