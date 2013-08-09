@@ -16,6 +16,11 @@ public class FuncIdent
 		parameterTypes = paramTypes;
 	}
 	
+	public void setAccessType(int t)
+	{
+		accessType = t;
+	}
+	
 	public int hashCode()
 	{
 		final int prime = 31;
@@ -43,8 +48,41 @@ public class FuncIdent
 				return false;
 		} else if (!functionName.equals(other.functionName))
 			return false;
-		if (!Arrays.equals(parameterTypes, other.parameterTypes))
+		
+		if(parameterTypes.length != other.parameterTypes.length)
 			return false;
+		
+		if(!Arrays.equals(parameterTypes, other.parameterTypes))
+			return false;
+		
+		return true;
+	}
+	
+	public boolean equalsWithCast(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (!(obj instanceof FuncIdent))
+			return false;
+		FuncIdent other = (FuncIdent) obj;
+		if (functionName == null)
+		{
+			if (other.functionName != null)
+				return false;
+		} else if (!functionName.equals(other.functionName))
+			return false;
+		
+		if(parameterTypes.length != other.parameterTypes.length)
+			return false;
+		
+		for(int i = 0; i<parameterTypes.length;i++)
+		{
+			if(!Variable.canCastTo(parameterTypes[i], other.parameterTypes[i]))
+				return false;
+		}
+		
 		return true;
 	}
 
@@ -61,4 +99,8 @@ public class FuncIdent
 	
 	public String functionName;
 	public int[] parameterTypes;
+	public int accessType = 0;
+	
+	public static int A_PRIVATE = 0;
+	public static int A_PUBLIC = 1;
 }

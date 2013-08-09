@@ -3,85 +3,57 @@ package org.wk.kniftoscript.comp;
 public class Token
 {
 
-	public Token(int type, String value)
+	public Token(int id, String lexem)
 	{
-		typeId = type;
-		tokenValue = value;
+		this(id,lexem,-1);
 	}
 	
-	public int getType()
+	public Token(int id, String lexem, int line)
 	{
-		return typeId;
+		this.id = id;
+		this.lexem = lexem;
+		this.line = line;
 	}
 	
-	public String getValue()
+	public int getID()
 	{
-		return tokenValue;
+		return id;
+	}
+	
+	public String getLexem()
+	{
+		return lexem;
 	}
 	
 	public String toString()
 	{
-		String result = "(" + typeId + "=";
-		switch(typeId)
-		{
-		case -1:
-			result += "INVALID";
-			break;
-		case 0:
-			result += "NULL";
-			break;
-		case 1:
-			result += "KEYWORD";
-			break;
-		case 2:
-			result += "OPERATOR";
-			break;
-		case 3:
-			result += "IDENTIFIER";
-			break;
-		case 4:
-			result += "LITERAL";
-			break;
-		case 7:
-			result += "STRING LITERAL";
-			break;
-		case 8:
-			result += "END TOKEN";
-			break;
-		case 5:
-		case 6:
-			result += "I have no idea why I defined this one.";
-			break;
-		case 9:
-			result += "DATATYPE";	
-			break;
-		case 10:
-			result += "BRACE";
-			break;
-		case 11:
-			result += "SEPERATOR";
-			break;
-		default:
-			result += "I don't know what you have done, but this token seems awkward...";	
-		}
-		result += "):" + tokenValue;
-		return result;
+		return lexem;
 	}
 	
-	private int typeId;
-	private String tokenValue;
+	public int getLine()
+	{
+		return line;
+	}
 	
-	public static final int T_INVALID = -1;
-	public static final int T_NULL = 0;
-	public static final int T_KEYWORD = 1;
-	public static final int T_OPERATOR = 2;
-	public static final int T_IDENTIFIER = 3;
-	public static final int T_LITERAL_INT = 4;
-	public static final int T_LITERAL_INTHEX = 5;
-	public static final int T_LITERAL_FLOAT = 6;
-	public static final int T_LITERAL_STRING = 7;
-	public static final int T_COMMAND_END = 8;
-	public static final int T_DATATYPE = 9;
-	public static final int T_BRACE = 10;
-	public static final int T_SEPERATOR = 11;
+	public boolean equalsLexem(String s)
+	{
+		return lexem.equals(s);
+	}
+	
+	public boolean equalsLexemIC(String s)
+	{
+		return lexem.equalsIgnoreCase(s);
+	}
+	
+	private int id;
+	private String lexem;
+	
+	private int line;
+	
+	public static final int T_KEYWORD = 0;
+	public static final int T_IDENTIFIER = 1;
+	public static final int T_INTEGER = 2;
+	public static final int T_STRING = 3;
+	public static final int T_OPERATOR = 4;
+	public static final int T_COMMENT = 5;
 }

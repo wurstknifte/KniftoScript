@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.wk.kniftoscript.KniftoScript;
-import org.wk.kniftoscript.Variable;
+import org.wk.kniftoscript.ScriptBytecodeRunner;
 
 public class Assembler
 {
@@ -27,9 +27,14 @@ public class Assembler
 		out = new ByteArrayOutputStream();
 		ByteArrayInputStream in = new ByteArrayInputStream(code.getBytes());
 		Lexer l = new Lexer(in);
-		l.keywords = getMnenomics();
-		l.datatypes = new String[]{"null"};
-		l.seperators = new int[]{',',':'};
+		for(String s : getMnenomics())
+			l.declareKeyword(s);
+		l.declareKeyword("null");
+		l.declareOperator(",");
+		l.declareOperator(":");
+		l.setIndicator(Lexer.I_STRING_START, "'");
+		l.setIndicator(Lexer.I_STRING_END, "'");
+		l.setIndicator(Lexer.I_COMMENT_SINGLELINE, "#");
 		lexer = new TokenBuffer(l);
 		
 		/*//Collect labels
@@ -49,10 +54,10 @@ public class Assembler
 		while(lexer.available() > 0)
 		{
 			Token t = lexer.readToken();
-			if(t.getType() == Token.T_KEYWORD)
+			if(t.getID() == Token.T_KEYWORD)
 			{
 				mnenomic(t);
-			}else if(t.getType() == Token.T_IDENTIFIER)
+			}else if(t.getID() == Token.T_IDENTIFIER)
 			{
 				label(t);
 			}else{
@@ -73,10 +78,11 @@ public class Assembler
 					throw new CompilerException("ASM: Undefined label: " + label);
 				
 				int adr = labels.get(label);
+				
 				program[ij] = (byte)((adr & 0x000000FF));
-				program[ij + 1] = (byte)((adr & 0x000000FF) << 8);
-				program[ij + 2] = (byte)((adr & 0x000000FF) << 16);
-				program[ij + 3] = (byte)((adr & 0x000000FF) << 24);
+				program[ij + 1] = (byte)((adr & 0x0000FF00) >> 8);
+				program[ij + 2] = (byte)((adr & 0x00FF0000) >> 16);
+				program[ij + 3] = (byte)((adr & 0xFF000000) >> 24);
 			}
 			
 			int i = program[ij];
@@ -90,9 +96,9 @@ public class Assembler
 	
 	private void label(Token t) throws IOException
 	{
-		String lbl = t.getValue();
+		String lbl = t.getLexem();
 		Token dp = lexer.readToken();
-		if(dp.getType() != Token.T_SEPERATOR && !dp.getValue().equals(":"))
+		if(dp.getID() != Token.T_OPERATOR && !dp.equalsLexem(":"))
 			throw new CompilerException("ASM: Bad label definition or unknown mnenomic(" + lbl + "); expected :, found " + dp.toString());
 		
 		labels.put(lbl,out.size());
@@ -101,7 +107,7 @@ public class Assembler
 	
 	private void mnenomic(Token t) throws IOException
 	{
-		String m = t.getValue();
+		String m = t.getLexem();
 		if(opcodes.get(m) == null)
 			throw new CompilerException("ASM: Unknown mnenomic: " + m);
 		
@@ -130,8 +136,8 @@ public class Assembler
 	
 	private void expectSeperator(Token t) throws IOException
 	{
-		if(t.getType() != Token.T_SEPERATOR)
-			throw new CompilerException("ASM: Expected seperator, found " + t.getValue());
+		if(t.getID() != Token.T_OPERATOR)
+			throw new CompilerException("ASM: Expected seperator, found " + t.getLexem());
 	}
 	
 	private void specialMnenomic(String m) throws IOException
@@ -140,55 +146,82 @@ public class Assembler
 		{
 			funcDef();
 			return;
+		}else if(m.equalsIgnoreCase("POPP"))//POP-PUSH
+		{
+			poppPshp(true);
+			return;
+		}else if(m.equalsIgnoreCase("PSHP"))//PUSH-POP
+		{
+			poppPshp(false);
+			return;
 		}
 		
 		throw new CompilerException("ASM: Unknown special mnenomic: " + m);
 	}
 	
+	//These are in here to save 3 bytes
+	private void poppPshp(boolean isPopp) throws CompilerException
+	{
+		Token t = lexer.readToken();
+		if(t.getID() != Token.T_INTEGER)
+			throw new CompilerException("ASM: Expected integer literal, found " + t.toString());
+		
+		out.write(isPopp ? ScriptBytecodeRunner.OP_POPP : ScriptBytecodeRunner.OP_PSHP);
+		out.write(Integer.parseInt(t.getLexem()) & 0xFF);
+	}
+	
 	private void funcDef() throws CompilerException
 	{
-		//DEF Instruction = <Opcode><Name><Adress><Parameter count>[<Parameter Type>]*
+		//DEF Instruction = <Opcode><Name><Adress><Access type><Parameter count>[<Parameter Type>]*
 		Token t = lexer.readToken();
-		if(t.getType() != Token.T_LITERAL_STRING)
+		if(t.getID() != Token.T_STRING)
 			throw new CompilerException("ASM: Expected string literal, found " + t.toString());
-		String name = t.getValue();
+		String name = t.getLexem();
 		
 		Token label = lexer.readToken();
-		if(!(label.getType() == Token.T_SEPERATOR && label.getValue().equals(",")))
+		if(!(label.getID() == Token.T_OPERATOR && label.equalsLexem(",")))
 			throw new CompilerException("ASM: Expected seperator, found " + t.toString());
 		label = lexer.readToken();
 		
-		out.write(KniftoScript.OP_DEF);
+		out.write(ScriptBytecodeRunner.OP_DEF);
 		printString(name);
-		if(label.getType() == Token.T_IDENTIFIER)
+		if(label.getID() == Token.T_IDENTIFIER)
 		{
-			neededLabels.put(out.size(), label.getValue());
+			neededLabels.put(out.size(), label.getLexem());
 			printInt(0);
-		}else if(label.getType() == Token.T_LITERAL_INT)
+		}else if(label.getID() == Token.T_INTEGER)
 		{
-			printInt(Integer.parseInt(label.getValue()));
+			printInt(Integer.parseInt(label.getLexem()));
 		}else
 		{
 			throw new CompilerException("ASM: Expected adress or label, found " + t.toString());
 		}
 		
+		t = lexer.readToken();
+		if(!(t.getID() == Token.T_OPERATOR && t.equalsLexem(",")))
+			throw new CompilerException("ASM: Expected seperator, found " + t.toString());
+		
+		t = lexer.readToken();
+		if(t.getID() != Token.T_INTEGER)
+			throw new CompilerException("ASM: Expected integer for access type, found " + t.toString());
+		out.write(Integer.parseInt(t.getLexem()) & 0xFF);
+		
 		ArrayList<Integer> params = new ArrayList<Integer>();
 		
 		t = lexer.peekToken();
-		while(t.getType() == Token.T_SEPERATOR && t.getValue().equals(","))
+		while(t.getID() == Token.T_OPERATOR && t.equalsLexem(","))
 		{
 			lexer.readToken();
 			t = lexer.readToken();
-			if(t.getType() != Token.T_LITERAL_INT)
+			if(t.getID() != Token.T_INTEGER)
 				throw new CompilerException("ASM: Expected int literal for datatype, found " + t.toString());
 			
-			int typeid = Integer.parseInt(t.getValue());//Variable.typeNameToId(t.getValue());
+			int typeid = Integer.parseInt(t.getLexem());//Variable.typeNameToId(t.getValue());
 			params.add(typeid);
 			t = lexer.peekToken();
 		}
 		
 		out.write(params.size() & 0xFF);
-		System.out.println(params.size());
 		for(int dt : params)
 			out.write(dt & 0xff);
 	}
@@ -201,17 +234,17 @@ public class Assembler
 			for(int i = 0; i<op.getParameterCount();i++)
 			{
 				Token t = tks[i];
-				if(t.getType() == Token.T_LITERAL_STRING)
+				if(t.getID() == Token.T_STRING)
 				{
-					printString(t.getValue());
-				}else if(t.getType() == Token.T_LITERAL_INT)
+					printString(t.getLexem());
+				}else if(t.getID() == Token.T_INTEGER)
 				{
-					int val = Integer.parseInt(t.getValue());
+					int val = Integer.parseInt(t.getLexem());
 					printInt(val);
-				}else if(t.getType() == Token.T_IDENTIFIER)
+				}else if(t.getID() == Token.T_IDENTIFIER)
 				{
-					neededLabels.put(out.size(), t.getValue());
-					System.out.println("Requested label '" + t.getValue() + "'");
+					neededLabels.put(out.size(), t.getLexem());
+					System.out.println("Requested label '" + t.getLexem() + "'");
 					printInt(0);
 				}
 			}
@@ -247,20 +280,20 @@ public class Assembler
 	
 	private void initOpcodes()
 	{
-		int s = Token.T_LITERAL_STRING;
-		int i = Token.T_LITERAL_INT;
+		int s = Token.T_STRING;
+		int i = Token.T_INTEGER;
 		
 		addOp("NOP");
 		addOp("DEC",i,s);
 		addOp("DIS",s);
 		addOp("SET",s,s);
 		addOp("SETI",s,s);
-		addOp("NEW");//TODO Implement new object instruction
+		addOp("NEW",s);
 		addSpecOp("DEF");
 		addOp("DIF",s);
 		addOp("CLS");
 		addOp("PSH",s);
-		addOp("PSHI",s);
+		addOp("PSHI",i,s);
 		addOp("POP",s);
 		addOp("ADD");
 		addOp("SUB");
@@ -274,12 +307,22 @@ public class Assembler
 		addOp("SOET");
 		addOp("LOR");
 		addOp("LAND");
+		addSpecOp("POPP");
+		addSpecOp("PSHP");
 		addOp("INV");
+		addOp("GETM",s);
+		addOp("POPM",s);
+		addOp("CPY");
 		addOp("JMP",i);
 		addOp("JPT",i);
 		addOp("JPF",i);
 		addOp("CAL",s);
 		addOp("RET");
+		addOp("CSF");
+		addOp("DSF");
+		addOp("CSS");
+		addOp("DSS");
+		addOp("CALM",s);
 		addOp("HDL",s);
 		addOp("HLT");
 		addOp("PRINTSTACK");
@@ -291,8 +334,8 @@ public class Assembler
 		//Get the opcode by reflection magic :D
 		try
 		{
-			Field f = KniftoScript.class.getDeclaredField("OP_" + mn);
-			int op = f.getInt(new KniftoScript());
+			Field f = ScriptBytecodeRunner.class.getDeclaredField("OP_" + mn);
+			int op = f.getInt(new ScriptBytecodeRunner(new int[]{},new KniftoScript()));
 			opcodes.put(mn, new OpIdent(mn,op,params));
 		} catch (Exception e)
 		{

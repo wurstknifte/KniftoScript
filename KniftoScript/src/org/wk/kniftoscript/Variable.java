@@ -17,21 +17,57 @@ public class Variable
 			{
 				value = (Integer)o;
 				return;
+			}else if(varType == V_LONG)
+			{
+				value = Long.valueOf(((Integer)o).longValue());
+				return;
 			}else if(varType == V_FLOAT)
 			{
 				value = Float.valueOf(((Integer)o).floatValue());
 				return;
+			}else if(varType == V_OBJECT)
+			{
+				value = o;
+				return;
 			}
-			throw new ScriptException("Cannot cast integer into " + varType);
+			throw new ScriptException("Cannot cast integer into " + typeIdToName(varType));
+		}else if(o instanceof Long)
+		{
+			if(varType == V_INT)
+			{
+				value = Integer.valueOf(((Long)o).intValue());
+				return;
+			}else if(varType == V_LONG)
+			{
+				value = (Long)o;
+				return;
+			}else if(varType == V_FLOAT)
+			{
+				value = Float.valueOf(((Long)o).floatValue());
+				return;
+			}else if(varType == V_OBJECT)
+			{
+				value = o;
+				return;
+			}
+			throw new ScriptException("Cannot cast long into " + typeIdToName(varType));
 		}else if(o instanceof Float)
 		{
 			if(varType == V_INT)
 			{
 				value = Integer.valueOf(((Float)o).intValue());
 				return;
+			}else if(varType == V_LONG)
+			{
+				value = Long.valueOf(((Float)o).longValue());
+				return;
 			}else if(varType == V_FLOAT)
 			{
 				value = (Float)o;
+				return;
+			}else if(varType == V_OBJECT)
+			{
+				value = o;
 				return;
 			}
 			throw new ScriptException("Cannot cast float into " + typeIdToName(varType));
@@ -41,9 +77,13 @@ public class Variable
 			{
 				value = o;
 				return;
+			}else if(varType == V_OBJECT)
+			{
+				value = o;
+				return;
 			}
 			throw new ScriptException("Cannot cast string into " + typeIdToName(varType));
-		}else if(o instanceof VarObject)
+		}else
 		{
 			if(varType == V_OBJECT)
 			{
@@ -52,7 +92,6 @@ public class Variable
 			}
 			throw new ScriptException("Cannot cast object into " + typeIdToName(varType));
 		}
-		throw new ScriptException("Invalid object type for variable type " + typeIdToName(varType));
 	}
 	
 	public Object getValue()
@@ -82,6 +121,9 @@ public class Variable
 		}else if(i == V_INT)
 		{
 			return "int";
+		}else if(i == V_LONG)
+		{
+			return "long";
 		}else if(i == V_FLOAT)
 		{
 			return "float";
@@ -100,6 +142,9 @@ public class Variable
 		if(s.equalsIgnoreCase("int"))
 		{
 			return V_INT;
+		}else if(s.equalsIgnoreCase("long"))
+		{
+			return V_LONG;
 		}else if(s.equalsIgnoreCase("float"))
 		{
 			return V_FLOAT;
@@ -133,19 +178,40 @@ public class Variable
 	{
 		if(o instanceof Integer)
 			return V_INT;
+		else if(o instanceof Long)
+			return V_LONG;
 		else if(o instanceof Float)
 			return V_FLOAT;
 		else if(o instanceof String)
 			return V_STRING;
-		else if(o instanceof VarObject)
-			return V_OBJECT;
 		else
-			return -1;
+			return V_OBJECT;
+	}
+	
+	public static boolean canCastTo(int type, int castType)
+	{
+		if(type == castType || castType == V_OBJECT)
+			return true;
+		
+		if(type == V_INT)
+		{
+			return (castType == V_FLOAT) || (castType == V_LONG);
+		}else if(type == V_LONG)
+		{
+			return (castType == V_INT) || (castType == V_FLOAT);
+		}else if(type == V_FLOAT)
+		{
+			return (castType == V_INT) || (castType == V_LONG);
+		}
+		
+		return false;
 	}
 	
 	public static final int V_RESERVED = 0;
 	public static final int V_INT = 1;
-	public static final int V_FLOAT = 2;
-	public static final int V_STRING = 3;
-	public static final int V_OBJECT = 4;
+	public static final int V_LONG = 2;
+	public static final int V_FLOAT = 4;
+	public static final int V_DOUBLE = 5;
+	public static final int V_STRING = 6;
+	public static final int V_OBJECT = 7;
 }

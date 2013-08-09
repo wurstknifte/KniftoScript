@@ -40,7 +40,7 @@ public class OpIdent
 		for(int i = 0;i<tks.length;i++)
 		{
 			Token t = tks[i];
-			if(parameterTypes[i] != t.getType() && t.getType() != Token.T_IDENTIFIER)
+			if(parameterTypes[i] != t.getID() && t.getID() != Token.T_IDENTIFIER)
 				return false;
 		}
 		return true;

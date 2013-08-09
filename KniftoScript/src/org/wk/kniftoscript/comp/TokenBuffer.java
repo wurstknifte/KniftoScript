@@ -16,32 +16,30 @@ public class TokenBuffer
 	{
 		ArrayList<Token> ba = new ArrayList<Token>();
 		ArrayList<Integer> lines = new ArrayList<Integer>();
-		Token t;
-		while((t = l.readToken()) != null)
+		
+		Token t = l.readToken();
+		int lastline = 0;
+		while(t != null)
 		{
+			lines.add(lastline);
 			ba.add(t);
-			lines.add(l.getCurrentLine());
+			lastline = l.getCurrentLine();
+			t = l.readToken();
 		}
+		
 		buffer = ba.toArray(new Token[ba.size()]);
-		Integer[] lbtmp = lines.toArray(new Integer[lines.size()]);
-		lineBuffer = new int[lines.size()];
-		for(int isd = 0;isd<lbtmp.length;isd++)
-		{
-			Integer isdi = lbtmp[isd];
-			lineBuffer[isd] = isdi.intValue();
-		}
 	}
 	
 	public Token readToken()
 	{
-		if(pointer < buffer.length)
+		if(available() > 0)
 			return buffer[pointer++];
 		return null;
 	}
 	
 	public Token peekToken()
 	{
-		if(pointer < buffer.length)
+		if(available() > 0)
 			return buffer[pointer];
 		return null;
 	}
@@ -53,7 +51,7 @@ public class TokenBuffer
 	
 	public int available()
 	{
-		return (buffer.length - 1) - pointer;
+		return buffer.length - pointer;
 	}
 	
 	public int getPointer()
@@ -76,13 +74,6 @@ public class TokenBuffer
 		pointer += i;
 	}
 	
-	public int getCurrentLine()
-	{
-		return lineBuffer[pointer];
-	}
-	
 	private int pointer;
 	private Token[] buffer;
-	
-	private int[] lineBuffer;
 }

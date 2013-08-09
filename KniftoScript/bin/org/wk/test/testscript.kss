@@ -1,29 +1,43 @@
-;Script zum Test des Lexers und des Compilers
+# Testscript for compiler
 
-float foo = 0
-int max = 1000
+string thisIsAKlohbahhl = "föföfö";
 
-func test(int i,float f)
-	i = i + 1
-	if(i == max+1)
-		return
-	end
-	foo = foo + f
-	test(i,f)
+out.println(thisIsAKlohbahhl);
+
+public func onInit(int i)
+
+	out.println(thisIsAKlohbahhl);
+
+	Object nv = new org.wk.test.ConstrTest();
+	
+	nv.setv(nv);
+	factorial(1);
+
+	out.println(give("asdfasdf"));
+
+	return factorial(i);
+	
 end
 
-func returnTest(int i)
+private func factorial(int i)
+
 	if(i == 0)
-		return 1
+		return 1;
 	end
 	
-	if(i != 0)
-		return (i * returnTest(i-1))
-	end
+	return i*factorial(i-1);
+
 end
 
-test(0,1.0)
+thisIsAKlohbahhl = "inti: " + 1020;
 
-foo = returnTest(4)
+private func give(string s)
 
-end.
+	return new java.lang.String(s + 123.5);
+
+end
+
+out.println(thisIsAKlohbahhl);
+
+
+
